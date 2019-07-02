@@ -52,6 +52,9 @@
 #include "hdd.h"
 #include "x86.h"
 #include "paths.h"
+#include <sys/time.h>
+#include <time.h>
+#include <math.h>
 
 #ifdef USE_NETWORKING
 #include "nethandler.h"
@@ -78,7 +81,8 @@ extern int mmuflush;
 extern int readlnum,writelnum;
 void fullspeed();
 
-int framecount,fps;
+int framecount;
+extern int fps;
 
 int atfullspeed;
 
@@ -86,10 +90,32 @@ void saveconfig(char *fn);
 int infocus;
 int mousecapture;
 FILE *pclogf;
+FILE *vlastnilogf;
 void pclog(const char *format, ...)
 {
 #ifndef RELEASE_BUILD
         char buf[1024];
+    
+        char time[26];
+        char timems[26];
+        char emulationspeed[100];
+        int millisec;
+        struct tm* tm_info;
+        struct timeval tv;
+
+        gettimeofday(&tv, NULL);
+
+        millisec = lrint(tv.tv_usec/1000.0); // Round to nearest millisec
+        if (millisec>=1000) { // Allow for rounding up to nearest second
+        millisec -=1000;
+        tv.tv_sec++;
+        }
+
+        tm_info = localtime(&tv.tv_sec);
+
+        strftime(time, 26, "%Y:%m:%d %H:%M:%S.", tm_info);
+        sprintf(timems, "%d ", millisec);
+        sprintf(emulationspeed, "Emulation speed: %d%% ->", fps);
         //return;
         if (!pclogf)
         {
@@ -98,15 +124,41 @@ void pclog(const char *format, ...)
                 strcat(buf, "pcem.log");
                 pclogf=fopen(buf, "wt");
         }
+         
         //return;
         va_list ap;
         va_start(ap, format);
         vsprintf(buf, format, ap);
         va_end(ap);
+        fputs(time,pclogf);
+        fputs(timems,pclogf);
+        fputs(emulationspeed,pclogf);
         fputs(buf,pclogf);
 //        fflush(pclogf);
 #endif
 }
+void vlastnilog(const char *format, ...)
+{
+#ifndef RELEASE_BUILD
+        char buf[1024];
+        //return;
+        if (!vlastnilogf)
+        {
+                strcpy(buf, logs_path);
+                put_backslash(buf);
+                strcat(buf, "vlastni.log");
+                vlastnilogf=fopen(buf, "wt");
+        }
+        //return;
+        va_list ap;
+        va_start(ap, format);
+        vsprintf(buf, format, ap);
+        va_end(ap);
+        fputs(buf,vlastnilogf);
+//        fflush(pclogf);
+#endif
+}
+
 
 void fatal(const char *format, ...)
 {
@@ -539,7 +591,7 @@ void runpc()
         framecountx++;
         framecount++;
         if (framecountx>=100)
-        {
+        {       
                 pclog("onesec\n");
                 framecountx=0;
                 mips=(float)insc/1000000.0f;
@@ -594,21 +646,24 @@ void fullspeed()
         {
                 printf("Set fullspeed - %i %i %i\n",is386,AT,cpuspeed2);
                 if (AT)
+                        //setpitclock(10000);
                         setpitclock(models[model].cpu[cpu_manufacturer].cpus[cpu].rspeed);
+                        //setpitclock(1789773.0);
                 else
-                        setpitclock(14318184.0);
-//                if (is386) setpitclock(clocks[2][cpuspeed2][0]);
-//                else       setpitclock(clocks[AT?1:0][cpuspeed2][0]);
+                      //  setpitclock(1789773.0);
+                if (is386) setpitclock(clocks[2][cpuspeed2][0]);
+                else       setpitclock(clocks[AT?1:0][cpuspeed2][0]);
         }
         atfullspeed=1;
 }
 
 void speedchanged()
 {
-        if (AT)
-                setpitclock(models[model].cpu[cpu_manufacturer].cpus[cpu].rspeed);
+        if (AT) 
+               //setpitclock(1789773.0);
+               setpitclock(2e+008);
         else
-                setpitclock(14318184.0);
+                setpitclock(1789773.0);
 }
 
 void closepc()

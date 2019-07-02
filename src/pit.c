@@ -27,6 +27,11 @@ uint64_t MDACONST;
 uint64_t VGACONST1, VGACONST2;
 uint64_t RTCCONST;
 
+uint64_t PITCONSTRATEGENERATOR;
+uint64_t PITCONSTSOUND;
+float PITSPEED;
+float PITSPEED_SOUND;
+
 float cpuclock;
 float isa_timing, bus_timing;
 
@@ -36,15 +41,25 @@ void setpitclock(float clock)
 //        printf("PIT clock %f\n",clock);
         cpuclock=clock;
         PITCONST = (uint64_t)(clock / 1193182.0 * (float)(1ull << 32));
-        CGACONST = (uint64_t)((clock / (19687503.0/11.0)) * (float)(1ull << 32));
-        MDACONST = (uint64_t)((clock / 2032125.0) * (float)(1ull << 32));
-        VGACONST1 = (uint64_t)((clock / 25175000.0) * (float)(1ull << 32));
-        VGACONST2 = (uint64_t)((clock / 28322000.0) * (float)(1ull << 32));
-        isa_timing = clock/8000000.0;
-        bus_timing = clock/(double)cpu_busspeed;
+        CGACONST = (uint64_t)((14318184 / (19687503.0 / 11.0)) * (float)(1ull << 32));
+        MDACONST = (uint64_t)((14318184 / 2032125.0) * (float)(1ull << 32));
+        VGACONST1 = (uint64_t)((14318184 / 25175000.0) * (float)(1ull << 32));
+        VGACONST2 = (uint64_t)((14318184 / 28322000.0) * (float)(1ull << 32));
+        isa_timing = 14318184 / 8000000.0;
+        bus_timing = 14318184 / (double)cpu_busspeed;
+        PITSPEED = cpu_get_speed();
+        PITSPEED_SOUND = PITSPEED;
+        PITCONSTRATEGENERATOR = (PITSPEED / 1193182.0 * (float)(1ull << 32));
+        PITCONSTSOUND = (PITSPEED_SOUND / 1193182.0 * (float)(1ull << 32));
+        // PITCONSTSOUND=0,2529100246;
+        // PITCONSTSOUND=0,3793650369;
+        // PITCONSTSOUND=0,5058200492;
+        // PITCONSTSOUND=0,6322750615;
+        // PITCONSTSOUND=0,7587300738;
+        // PITCONSTSOUND=0,8851850861;
         video_updatetiming();
-//        pclog("PITCONST=%f CGACONST=%f\n", PITCONST, CGACONST);
-//        pclog("CPUMULTI=%g\n", ((14318184.0*(double)(1 << TIMER_SHIFT)) / (double)models[model].cpu[cpu_manufacturer].cpus[cpu].rspeed));
+        //        pclog("PITCONST=%f CGACONST=%f\n", PITCONST, CGACONST);
+        //        pclog("CPUMULTI=%g\n", ((14318184.0*(double)(1 << TIMER_SHIFT)) / (double)models[model].cpu[cpu_manufacturer].cpus[cpu].rspeed));
         
         xt_cpu_multi = (uint64_t)((14318184.0*(double)(1ull << 32)) / (double)cpu_get_speed());
 //        pclog("egacycles %i egacycles2 %i temp %f clock %f\n",egacycles,egacycles2,temp,clock);
@@ -120,6 +135,24 @@ static void pit_dump_and_disable_timer(PIT *pit, int t)
 
 static void pit_load(PIT *pit, int t)
 {
+        PITSPEED = cpu_get_speed();
+        PITCONST = (uint64_t)(PITSPEED / 1193182.0 * (float)(1ull << 32));
+        PITSPEED_SOUND = PITSPEED;
+        PITCONSTRATEGENERATOR = (PITSPEED / 1193182.0 * (float)(1ull << 32));
+        PITCONSTSOUND = (PITSPEED_SOUND / 1193182.0 * (float)(1ull << 32));
+        //TIMER_USEC = (uint64_t)((PITSPEED / 1000000.0) * (float)(1ull << 32));
+
+        cpuclock = PITSPEED;
+        PITCONST = (uint64_t)(PITSPEED / 1193182.0 * (float)(1ull << 32));
+        CGACONST = (uint64_t)((PITSPEED / (19687503.0 / 11.0)) * (float)(1ull << 32));
+        MDACONST = (uint64_t)((PITSPEED / 2032125.0) * (float)(1ull << 32));
+        VGACONST1 = (uint64_t)((PITSPEED / 25175000.0) * (float)(1ull << 32));
+        VGACONST2 = (uint64_t)((PITSPEED / 28322000.0) * (float)(1ull << 32));
+        isa_timing = PITSPEED / 8000000.0;
+        bus_timing = PITSPEED / (double)cpu_busspeed;
+        RTCCONST = (uint64_t)((PITSPEED / 32768.0) * (float)(1ull << 32));
+        TIMER_USEC = (uint64_t)((PITSPEED / 1000000.0) * (float)(1ull << 32));
+
         int l = pit->l[t] ? pit->l[t] : 0x10000;
 
         pit->newcount[t] = 0;
@@ -143,7 +176,7 @@ static void pit_load(PIT *pit, int t)
                 {
                         pit->count[t] = l - 1;
 			if (pit->using_timer[t])
-				timer_set_delay_u64(&pit->timer[t], (uint64_t)((l - 1) * PITCONST));
+                                timer_set_delay_u64(&pit->timer[t], (uint64_t)((l - 1) * PITCONSTRATEGENERATOR));
                         pit_set_out(pit, t, 1);
                         pit->thit[t] = 0;
                 }
@@ -154,7 +187,8 @@ static void pit_load(PIT *pit, int t)
                 {
                         pit->count[t] = l;
 			if (pit->using_timer[t])
-				timer_set_delay_u64(&pit->timer[t], (uint64_t)(((l + 1) >> 1) * PITCONST));
+                                timer_set_delay_u64(&pit->timer[t], (uint64_t)(((l + 1) >> 1) * PITCONSTSOUND));
+                        /// SPELLCROSS timer_advance_u64(&pit->timer[t], (uint64_t)((l >> 1) * PITCONST * 1,264550123 /*3,793650368*/));
                         pit_set_out(pit, t, 1);
                         pit->thit[t] = 0;
                 }
@@ -188,6 +222,25 @@ static void pit_load(PIT *pit, int t)
 
 void pit_set_gate_no_timer(PIT *pit, int t, int gate)
 {
+
+        PITSPEED = cpu_get_speed();
+        PITSPEED_SOUND = PITSPEED;
+        PITCONST = (uint64_t)(PITSPEED / 1193182.0 * (float)(1ull << 32));
+        PITCONSTRATEGENERATOR = (PITSPEED / 1193182.0 * (float)(1ull << 32));
+        PITCONSTSOUND = (PITSPEED_SOUND / 1193182.0 * (float)(1ull << 32));
+        //TIMER_USEC = (uint64_t)((PITSPEED / 1000000.0) * (float)(1ull << 32));
+
+        cpuclock = PITSPEED;
+        PITCONST = (uint64_t)(PITSPEED / 1193182.0 * (float)(1ull << 32));
+        CGACONST = (uint64_t)((PITSPEED / (19687503.0 / 11.0)) * (float)(1ull << 32));
+        MDACONST = (uint64_t)((PITSPEED / 2032125.0) * (float)(1ull << 32));
+        VGACONST1 = (uint64_t)((PITSPEED / 25175000.0) * (float)(1ull << 32));
+        VGACONST2 = (uint64_t)((PITSPEED / 28322000.0) * (float)(1ull << 32));
+        isa_timing = PITSPEED / 8000000.0;
+        bus_timing = PITSPEED / (double)cpu_busspeed;
+        RTCCONST = (uint64_t)((PITSPEED / 32768.0) * (float)(1ull << 32));
+        TIMER_USEC = (uint64_t)((PITSPEED / 1000000.0) * (float)(1ull << 32));
+
         int l = pit->l[t] ? pit->l[t] : 0x10000;
 
         if (pit->disabled[t])
@@ -221,7 +274,7 @@ void pit_set_gate_no_timer(PIT *pit, int t, int gate)
                 {
                         pit->count[t] = l - 1;
 			if (pit->using_timer[t])
-				timer_set_delay_u64(&pit->timer[t], (uint64_t)(l * PITCONST));
+                                timer_set_delay_u64(&pit->timer[t], (uint64_t)(l * PITCONSTRATEGENERATOR));
                         pit_set_out(pit, t, 1);
                         pit->thit[t] = 0;
                 }                
@@ -232,7 +285,8 @@ void pit_set_gate_no_timer(PIT *pit, int t, int gate)
                 {
                         pit->count[t] = l;
 			if (pit->using_timer[t])
-				timer_set_delay_u64(&pit->timer[t], (uint64_t)(((l + 1) >> 1) * PITCONST));
+                                timer_set_delay_u64(&pit->timer[t], (uint64_t)(((l + 1) >> 1) * PITCONSTSOUND));
+                        /// SPELLCROSS timer_advance_u64(&pit->timer[t], (uint64_t)((l >> 1) * PITCONST * 1,264550123 /*3,793650368*/));
                         pit_set_out(pit, t, 1);
                         pit->thit[t] = 0;
                 }
@@ -260,6 +314,24 @@ void pit_set_gate(PIT *pit, int t, int gate)
 
 static void pit_over(PIT *pit, int t)
 {
+        PITSPEED = cpu_get_speed();
+        PITSPEED_SOUND = PITSPEED;
+        PITCONST = (uint64_t)(PITSPEED / 1193182.0 * (float)(1ull << 32));
+        PITCONSTRATEGENERATOR = (PITSPEED / 1193182.0 * (float)(1ull << 32));
+        PITCONSTSOUND = (PITSPEED_SOUND / 1193182.0 * (float)(1ull << 32));
+        //TIMER_USEC = (uint64_t)((PITSPEED / 1000000.0) * (float)(1ull << 32));
+
+        cpuclock = PITSPEED;
+        PITCONST = (uint64_t)(PITSPEED / 1193182.0 * (float)(1ull << 32));
+        CGACONST = (uint64_t)((PITSPEED / (19687503.0 / 11.0)) * (float)(1ull << 32));
+        MDACONST = (uint64_t)((PITSPEED / 2032125.0) * (float)(1ull << 32));
+        VGACONST1 = (uint64_t)((PITSPEED / 25175000.0) * (float)(1ull << 32));
+        VGACONST2 = (uint64_t)((PITSPEED / 28322000.0) * (float)(1ull << 32));
+        isa_timing = PITSPEED / 8000000.0;
+        bus_timing = PITSPEED / (double)cpu_busspeed;
+        RTCCONST = (uint64_t)((PITSPEED / 32768.0) * (float)(1ull << 32));
+        TIMER_USEC = (uint64_t)((PITSPEED / 1000000.0) * (float)(1ull << 32));
+
         int l = pit->l[t] ? pit->l[t] : 0x10000;
         if (pit->disabled[t])
         {
@@ -284,7 +356,7 @@ static void pit_over(PIT *pit, int t)
                 case 2: /*Rate generator*/
                 pit->count[t] += l;
 		if (pit->using_timer[t])
-			timer_advance_u64(&pit->timer[t], (uint64_t)(l * PITCONST));
+                        timer_advance_u64(&pit->timer[t], (uint64_t)(l * PITCONSTRATEGENERATOR));
                 pit_set_out(pit, t, 0);
                 pit_set_out(pit, t, 1);
                 break;
@@ -294,7 +366,8 @@ static void pit_over(PIT *pit, int t)
                         pit_set_out(pit, t, 0);
                         pit->count[t] += (l >> 1);
 			if (pit->using_timer[t])
-				timer_advance_u64(&pit->timer[t], (uint64_t)((l >> 1) * PITCONST));
+                                timer_advance_u64(&pit->timer[t], (uint64_t)((l >> 1) * PITCONSTSOUND));
+                        /// SPELLCROSS timer_advance_u64(&pit->timer[t], (uint64_t)((l >> 1) * PITCONST * 1,264550123 /*3,793650368*/));
                 }
                 else
                 {

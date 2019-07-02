@@ -23,7 +23,10 @@ uint8_t *ram;
 
 uint32_t rammask;
 
-int readlookup[256],readlookupp[256];
+int readlookup[256], readlookupp[256];
+
+extern int scycles_lost;
+
 uintptr_t *readlookup2;
 int readlnext;
 int writelookup[256],writelookupp[256];
@@ -371,6 +374,7 @@ extern int idecallback[2];
 extern uint32_t atapi_get_cd_volume(int channel);
 
 void pclog(const char *format, ...);
+void vlastnilog(const char *format, ...);
 void fatal(const char *format, ...);
 void warning(const char *format, ...);
 extern int nmi;
