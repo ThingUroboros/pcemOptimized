@@ -21,7 +21,7 @@ drive_info_t drive_info[10];
 
 int status_is_open = 0;
 
-extern int sreadlnum, swritelnum, segareads, segawrites, scycles_lost;
+extern int sreadlnum, swritelnum, segareads, segawrites;
 extern int render_fps, fps;
 
 extern uint64_t main_time;
