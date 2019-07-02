@@ -10,6 +10,7 @@
 
 extern char* get_filename(char*);
 extern void pclog(const char *format, ...);
+extern void vlastnilog(const char *format, ...);
 
 static int endswith(const char* str, const char* ext)
 {
